@@ -68,6 +68,8 @@ def check_dependencies():
         return False
     
     print("\n✅ All dependencies are installed!")
+    print("🎵 Audio processing libraries loaded successfully")
+    print("🔧 Vinyl-style pitch correction engine ready")
     return True
 
 # Import the packages after checking
@@ -335,6 +337,8 @@ def get_file_input():
     while True:
         print("\n" + "="*50)
         print("VINYL-STYLE PITCH CORRECTOR")
+        print("="*50)
+        print("Written by Raama Srivatsan 2025")
         print("="*50)
         print("Supported formats:", ", ".join(sorted(get_supported_formats())))
         print("\nDrag and drop your audio file into this terminal, or enter the file path:")
