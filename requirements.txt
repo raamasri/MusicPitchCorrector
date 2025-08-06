@@ -3,3 +3,4 @@ soundfile>=0.12.1
 numpy>=1.24.0
 resampy>=0.4.0
 tqdm>=4.64.0
+yt-dlp>=2023.7.6

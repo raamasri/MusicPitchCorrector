@@ -6,7 +6,9 @@ A Python script that performs vinyl-style pitch correction on audio files, where
 
 - **Vinyl-style pitch shifting**: Changes both pitch and speed together (higher pitch = faster, lower pitch = slower)
 - **Fine pitch control**: Adjust by semitones and cents (e.g., +1.52 = 1 semitone + 52 cents)
+- **Multiple input sources**: Local audio files OR YouTube URLs
 - **Universal format support**: Handles WAV, FLAC, MP3, M4A, OGG, OPUS, and more
+- **YouTube integration**: Download and process audio directly from YouTube links
 - **Lossless processing**: Maintains audio quality throughout the process
 - **Smart format handling**: MP3 → MP3, FLAC → FLAC, etc.
 - **Progress tracking**: Real-time progress bars for all operations
@@ -43,7 +45,7 @@ A Python script that performs vinyl-style pitch correction on audio files, where
 If you don't have the requirements.txt file, install packages individually:
 
 ```bash
-pip install librosa>=0.10.0 soundfile>=0.12.1 numpy>=1.24.0 resampy>=0.4.0 tqdm>=4.64.0
+pip install librosa>=0.10.0 soundfile>=0.12.1 numpy>=1.24.0 resampy>=0.4.0 tqdm>=4.64.0 yt-dlp>=2023.7.6
 ```
 
 ## Usage
@@ -55,15 +57,21 @@ pip install librosa>=0.10.0 soundfile>=0.12.1 numpy>=1.24.0 resampy>=0.4.0 tqdm>
    python pitch_corrector.py
    ```
 
-2. **Drag and drop** your audio file into the terminal when prompted, or type the file path
+2. **Choose your input source:**
+   - **Option 1**: Local audio file (drag & drop or file path)
+   - **Option 2**: YouTube URL (automatically downloads audio)
 
-3. Enter your pitch adjustment:
+3. **For YouTube**: Paste any YouTube link (e.g., `https://www.youtube.com/watch?v=dQw4w9WgXcQ`)
+
+4. **For files**: Drag and drop your audio file into the terminal or type the file path
+
+5. Enter your pitch adjustment:
    - `+1` = up 1 semitone (faster)
    - `-0.5` = down 50 cents (slower)
    - `+1.52` = up 1 semitone + 52 cents (much faster)
    - `0` = no change
 
-4. Wait for processing to complete!
+6. Wait for processing to complete!
 
 ### Examples
 

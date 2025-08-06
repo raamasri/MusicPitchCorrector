@@ -8,6 +8,9 @@
 *.ogg
 *.opus
 
+# Downloaded files
+downloads/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -46,6 +46,12 @@ def check_dependencies():
     except ImportError:
         missing_deps.append("tqdm>=4.64.0")
     
+    try:
+        import yt_dlp
+        print("✓ yt-dlp found")
+    except ImportError:
+        missing_deps.append("yt-dlp>=2023.7.6")
+    
     # Check ffmpeg
     try:
         result = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
@@ -80,6 +86,8 @@ try:
     from tqdm import tqdm
     import threading
     import time
+    import yt_dlp
+    import shutil
 except ImportError as e:
     print(f"Import error: {e}")
     print("Please install required packages first.")
@@ -332,16 +340,137 @@ def process_audio_file(input_path, semitones):
         return False
 
 
-def get_file_input():
-    """Get audio file path from user input (supports drag & drop)."""
+class ProgressHook:
+    """Progress hook for yt-dlp with tqdm progress bar."""
+    
+    def __init__(self):
+        self.pbar = None
+        
+    def __call__(self, d):
+        if d['status'] == 'downloading':
+            if self.pbar is None:
+                # Initialize progress bar when download starts
+                if 'total_bytes' in d:
+                    total = d['total_bytes']
+                elif 'total_bytes_estimate' in d:
+                    total = d['total_bytes_estimate']
+                else:
+                    total = None
+                
+                self.pbar = tqdm(
+                    total=total,
+                    unit='B',
+                    unit_scale=True,
+                    desc="📥 Downloading",
+                    bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]'
+                )
+            
+            # Update progress
+            if 'downloaded_bytes' in d:
+                self.pbar.n = d['downloaded_bytes']
+                self.pbar.refresh()
+                
+        elif d['status'] == 'finished':
+            if self.pbar:
+                self.pbar.close()
+                print(f"✓ Downloaded: {Path(d['filename']).name}")
+            
+            # Start conversion progress
+            print("🔄 Converting to MP3...")
+
+
+def download_youtube_audio(url):
+    """Download audio from YouTube URL and return the file path."""
+    try:
+        # Ensure ffmpeg is available
+        if shutil.which("ffmpeg") is None:
+            print("❌ ffmpeg not found. Please install it first:")
+            if sys.platform == "darwin":
+                print("  macOS: brew install ffmpeg")
+            elif sys.platform.startswith("win"):
+                print("  Windows: choco install ffmpeg  (or download from ffmpeg.org)")
+            else:
+                print("  Linux (Debian/Ubuntu): sudo apt-get install ffmpeg")
+            return None
+        
+        # Create downloads directory in the same folder as script
+        script_dir = Path(__file__).parent
+        downloads_dir = script_dir / "downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create progress hook
+        progress_hook = ProgressHook()
+        
+        ydl_opts = {
+            "outtmpl": str(downloads_dir / "%(title)s.%(ext)s"),
+            "format": "bestaudio/best",
+            "noplaylist": True,
+            "quiet": True,  # Suppress yt-dlp output, we'll use our progress bar
+            "no_warnings": True,
+            "progress_hooks": [progress_hook],
+            "postprocessors": [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "320",
+            }],
+        }
+        
+        print("🎵 Starting YouTube download...")
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # Extract info first to get title
+            info = ydl.extract_info(url, download=False)
+            print(f"📼 Title: {info.get('title', 'Unknown')}")
+            print(f"⏱️  Duration: {info.get('duration', 0) // 60}:{info.get('duration', 0) % 60:02d}")
+            
+            # Now download
+            info = ydl.extract_info(url, download=True)
+            
+            # Get the expected output filename
+            final_path = Path(ydl.prepare_filename(info)).with_suffix(".mp3")
+                
+        if final_path.exists():
+            print(f"✅ Successfully downloaded and converted to MP3!")
+            print(f"📁 Saved as: {final_path.name}")
+            return str(final_path)
+        else:
+            print("❌ Download failed - file not found")
+            return None
+            
+    except Exception as e:
+        print(f"❌ YouTube download error: {e}")
+        return None
+
+
+def get_input_source():
+    """Get input source - either file or YouTube URL."""
     while True:
         print("\n" + "="*50)
         print("VINYL-STYLE PITCH CORRECTOR")
         print("="*50)
         print("Written by Raama Srivatsan 2025")
         print("="*50)
-        print("Supported formats:", ", ".join(sorted(get_supported_formats())))
-        print("\nDrag and drop your audio file into this terminal, or enter the file path:")
+        print("Choose your input source:")
+        print("1. Local audio file (drag & drop or file path)")
+        print("2. YouTube URL")
+        print("="*50)
+        
+        choice = input("Enter your choice (1 or 2): ").strip()
+        
+        if choice == "1":
+            return get_file_input()
+        elif choice == "2":
+            return get_youtube_input()
+        else:
+            print("❌ Please enter 1 or 2")
+            continue
+
+
+def get_file_input():
+    """Get audio file path from user input (supports drag & drop)."""
+    while True:
+        print(f"\nSupported formats: {', '.join(sorted(get_supported_formats()))}")
+        print("Drag and drop your audio file into this terminal, or enter the file path:")
         
         file_path = input("> ").strip()
         
@@ -375,6 +504,34 @@ def get_file_input():
         else:
             print(f"✗ {message}")
             print("Please try again.\n")
+
+
+def get_youtube_input():
+    """Get YouTube URL and download audio."""
+    while True:
+        print("\nEnter YouTube URL:")
+        print("(Example: https://www.youtube.com/watch?v=dQw4w9WgXcQ)")
+        
+        url = input("> ").strip()
+        
+        if not url:
+            print("❌ No URL provided. Please try again.\n")
+            continue
+        
+        # Basic YouTube URL validation
+        if not ("youtube.com" in url or "youtu.be" in url):
+            print("❌ Please enter a valid YouTube URL")
+            continue
+        
+        # Download the audio
+        downloaded_file = download_youtube_audio(url)
+        
+        if downloaded_file:
+            return downloaded_file
+        else:
+            retry = input("\n❌ Download failed. Try again? (y/n): ").strip().lower()
+            if retry != 'y':
+                return None
 
 
 def get_pitch_adjustment():
@@ -434,8 +591,12 @@ def main():
             print("\nPlease install missing dependencies before running the script.")
             sys.exit(1)
         
-        # Get input file
-        input_file = get_file_input()
+        # Get input source (file or YouTube)
+        input_file = get_input_source()
+        
+        if not input_file:
+            print("❌ No input file selected. Exiting.")
+            return
         
         # Get pitch adjustment
         semitones = get_pitch_adjustment()
